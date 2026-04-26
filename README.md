@@ -57,9 +57,16 @@ Shuffle spawns child Docker containers to execute workflow actions. These contai
 **Fix:** Created a persistent systemd service (`shuffle-network-fix`) that automatically connects every new worker container to the `soc-stack_soc-net` Docker network within 2 seconds of it spawning.
 
 ### 2. RAM Exhaustion Crashing the Entire Stack
-Running Wazuh, Shuffle, TheHive, and OpenSearch on 12GB RAM caused repeated OOM kills. The server crashed overnight with 300+ orphaned Docker containers consuming all available memory.
+Running Wazuh, Shuffle, TheHive, and OpenSearch on 12GB RAM caused repeated OOM kills. The server crashed overnight with 300+ orphaned Docker containers consuming all available memory. TheHive alone grew to 3GB+ unconstrained, and Shuffle's OpenSearch required at least 512MB just to initialize.
 
-**Fix:** Added Docker `mem_limit` constraints per container, reduced Java heap sizes, created a RAM watchdog systemd service that auto-remediates when available memory drops below 1GB, and added a 2GB swap file as a safety buffer.
+**Fix:**
+- Added Docker `mem_limit` per container (TheHive: 2GB, Shuffle OpenSearch: 1GB, Backend: 512MB)
+- Reduced Java heap sizes via `OPENSEARCH_JAVA_OPTS` and `JVM_OPTS` environment variables
+- Created RAM watchdog systemd service that auto-remediates when available memory drops below 1GB
+- Added 2GB swap file as safety buffer with cron to clear it every 6 hours
+- Disabled Wazuh dashboard to save ~190MB (re-enable for demos with `systemctl start wazuh-dashboard`)
+- Killed and blacklisted tenzir-node process consuming ~400MB with no purpose in this stack
+- Created startup script to remove stale Docker containers before `docker-compose up`
 
 ### 3. Shuffle Webhook Kept Trying to Authenticate Against the Cloud
 Self-hosted Shuffle was routing webhook start requests to shuffler.io cloud instead of staying local, returning "Bad apikey. Requires Org authentication" errors.
