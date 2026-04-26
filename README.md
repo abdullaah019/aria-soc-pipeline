@@ -83,6 +83,151 @@ Every time Docker restarted, old containers with the `ContainerConfig` key missi
 
 **Fix:** Created a startup script (`soc-startup.sh`) that automatically removes all exited containers before attempting `docker-compose up`, and added this to the system startup sequence.
 
+## Troubleshooting Guide
+
+### Shuffle shows "Waiting for database to become available"
+OpenSearch isn't ready yet or has crashed.
+```bash
+# Check status
+sudo docker stats shuffle-opensearch --no-stream
+
+# If memory is at limit, increase it in docker-compose.yml then recreate
+sudo docker rm -f shuffle-opensearch
+sudo docker-compose up -d shuffle-opensearch
+
+# Wait for green/yellow status
+sleep 90 && sudo docker exec shuffle-opensearch curl -s http://localhost:9200/_cluster/health 2>/dev/null
+```
+
+### TheHive won't load / keeps crashing
+Usually OOM. TheHive needs at least 1GB, ideally 2GB.
+```bash
+# Check memory usage
+sudo docker stats thehive --no-stream
+
+# If at limit, increase mem_limit in docker-compose.yml then recreate
+sudo docker rm -f thehive
+sudo docker-compose up -d thehive
+
+# Verify it's up
+sleep 120 && curl -s http://localhost:9000/api/status | head -1
+```
+
+### Shuffle executions stuck on EXECUTING / never finish
+Worker containers can't reach the backend network.
+```bash
+# Connect all worker containers to the network
+sudo docker ps --format '{{.Names}}' | grep "^worker-" | xargs -I{} sudo docker network connect soc-stack_soc-net {} 2>/dev/null
+
+# Verify network fix service is running
+sudo systemctl status shuffle-network-fix
+```
+
+### Shuffle executions ABORTED after 30 minutes
+Cleanup bot is killing long-running executions.
+```bash
+# Disable execution timeout
+# Add to shuffle-backend environment in docker-compose.yml:
+# - SHUFFLE_EXECUTION_TIMEOUT=0
+sudo docker-compose restart shuffle-backend
+```
+
+### Wazuh manager won't start
+Check for stale processes or check logs.
+```bash
+# Kill stale processes
+sudo pkill -f wazuh
+sleep 5
+
+# Start via wazuh-control (not systemctl)
+sudo /var/ossec/bin/wazuh-control start
+
+# Check status
+sudo /var/ossec/bin/wazuh-control status
+```
+
+### Wazuh alerts not flowing to Shuffle
+Check integration log and webhook status.
+```bash
+# Check alerts are being sent
+sudo tail -10 /var/ossec/logs/integrations.log
+
+# Verify webhook is in Shuffle — go to:
+# http://85.239.231.102:3001 -> Wazuh -> TheHive -> Receive Wazuh Alert -> Start
+```
+
+### TheHive alerts showing empty fields
+The Shuffle workflow body has stale variables. Verify the TheHive node body is:
+```json
+{"title":"$startnode.title","description":"$startnode.text","severity":2,"type":"external","source":"Wazuh","sourceRef":"$startnode.id","summary":"Rule $startnode.rule_id fired at $startnode.timestamp"}
+```
+
+### docker-compose up fails with 'ContainerConfig' error
+Stale containers from old image versions are blocking startup.
+```bash
+# Find and remove stale containers
+sudo docker ps -a | grep "Exit" | awk '{print $1}' | xargs sudo docker rm -f 2>/dev/null
+
+# Then start the stack
+sudo docker-compose up -d
+```
+
+### RAM is critically low / swap full
+```bash
+# Clear swap
+sudo swapoff -a && sudo swapon -a
+
+# Kill tenzir if running
+sudo docker rm -f tenzir-node 2>/dev/null
+
+# Clean orphaned worker containers
+sudo docker ps -a --format '{{.Names}}' | grep "^worker-" | xargs docker rm -f 2>/dev/null
+
+# Drop caches
+sudo sync && echo 3 | sudo tee /proc/sys/vm/drop_caches
+
+# Check result
+free -h
+```
+
+### Can't log into TheHive with aria@thehive.local
+aria is a service account — it can only authenticate via API key, not the web UI. Log in as:
+- **Login:** `admin@thehive.local`
+- **Password:** `secret`
+Then switch to the SOC organisation.
+
+### Wazuh indexer won't start
+Usually not enough RAM. Free memory first then start.
+```bash
+sudo swapoff -a && sudo swapon -a
+sudo docker rm -f tenzir-node 2>/dev/null
+sleep 5
+sudo systemctl start wazuh-indexer
+sleep 30
+sudo systemctl status wazuh-indexer | grep Active
+```
+
+### Check overall stack health
+```bash
+# All containers
+sudo docker-compose ps
+
+# Memory
+free -h
+
+# Wazuh processes
+sudo /var/ossec/bin/wazuh-control status
+
+# Recent alerts flowing
+sudo tail -5 /var/ossec/logs/integrations.log
+
+# TheHive responding
+curl -s http://localhost:9000/api/status | head -1
+
+# Shuffle responding
+curl -s http://localhost:5001/api/v1/health | python3 -m json.tool | grep success
+```
+
 ## Key Files
 
 - `docker-compose.yml` — full stack definition with memory limits
