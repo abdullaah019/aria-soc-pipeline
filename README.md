@@ -18,6 +18,9 @@ An automated open-source SOC pipeline built on a $9/month VPS. Wazuh detects thr
 ### ARIA — AI Agent Overnight Report via Telegram
 ![ARIA Telegram Report](F4.png)
 
+### Network Infrastructure Diagram
+![Network Diagram](network-diagram.png.png)
+
 ## Stack
 
 | Tool | Role | Version |
