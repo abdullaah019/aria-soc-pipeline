@@ -2,8 +2,6 @@
 
 ## Overview
 
-![ARIA SOC Network Diagram](network-diagram.png)
-
 This SOC pipeline runs on a single cloud VPS with multiple Docker-based services communicating over an isolated internal network. All external traffic passes through UFW before reaching any service.
 
 ## Server Specs
