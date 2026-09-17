@@ -1,169 +1,165 @@
-# ARIA — Autonomous Response & Intelligence Agent
+# ARIA SOC Pipeline
 
-![Status](https://img.shields.io/badge/Status-Production-brightgreen)
-![Platform](https://img.shields.io/badge/Platform-SeenProtect-7C3AED)
-![AI](https://img.shields.io/badge/AI-Claude%20claude--sonnet--4--5-orange)
-![Stack](https://img.shields.io/badge/Stack-Wazuh%20%7C%20TheHive%20%7C%20Next.js-blue)
+ARIA is the evidence-driven investigation and response pipeline behind SeenProtect.
 
-> Built a production SOC-as-a-Service platform on a $9/month VPS. Started as a homelab. Now a real product with paying clients.
+This public repository documents the system architecture without exposing credentials, customer telemetry, production topology, private detection logic, or decision thresholds.
 
-**Live:** [seenprotect.com](https://seenprotect.com) • [portal.seenprotect.com](https://portal.seenprotect.com)
+## Purpose
 
----
+ARIA turns security detections into evidence-backed investigation outcomes.
 
-## What Is ARIA?
+The pipeline:
 
-ARIA is an autonomous SOC pipeline that monitors endpoints 24/7, analyzes threats with Claude AI, creates cases in TheHive, alerts via Telegram, and generates compliance reports — without manual intervention.
+1. Ingests alerts from approved sources.
+2. Applies tenant scope before investigation.
+3. Removes duplicate source events.
+4. Performs deterministic enrichment.
+5. Collects available evidence and records missing artifacts.
+6. Uses the ARIA L2 Orchestrator to investigate within a defined tool budget.
+7. Builds an Evidence Package containing facts, contradictions, unknowns, and citations.
+8. Uses CODEX to propose a verdict, confidence, and evidence-sufficiency state.
+9. Verifies citations, evidence validity, and tenant scope.
+10. Applies a deterministic Policy Gate.
+11. Routes the case to a durable live action, analyst review, or escalation workflow.
 
-Built for regulated SMBs (healthcare, legal, financial) that need enterprise-grade security but can't afford a full in-house SOC team.
+## Current Architecture
 
----
-
-## Architecture
-
+```mermaid
+flowchart LR
+    A["Alert Sources"] --> B["Ingest & Tenant Scope"]
+    B --> C["Deduplicate"]
+    C --> D["Deterministic Enrichment"]
+    D --> E["ARIA L2 Orchestrator"]
+    E --> F["Evidence Package"]
+    F --> G["CODEX Decision"]
+    G --> H["Verifier"]
+    H --> I["Policy Gate"]
+    I -->|Authorized| J["Live Action Executor"]
+    J --> K["Auto-Resolve"]
+    I -->|Human judgment| L["For Review"]
+    I -->|Risk or response| M["Escalate / Response"]
+    K --> N["Client Portal"]
+    L --> N
+    L --> O["SOC Board"]
+    M --> O
 ```
-Wazuh Agents (Windows / Linux / macOS / M365 / GCP)
-                        ↓
-              Wazuh Manager (VPS)
-         47 custom rules • MITRE-mapped
-                        ↓
-              ARIA L2 Agent (Claude AI)
-      MITRE mapping • CISA KEV • NIST CSF 2.0
-                        ↓
-    ┌───────────┬──────────┬──────────┬──────────┐
-    │  TheHive  │ Telegram │ Supabase │  PDF     │
-    │  Cases    │  Alerts  │    DB    │ Reports  │
-    └───────────┴──────────┴──────────┴──────────┘
-                        ↓
-              Client Portal (Next.js 14)
-          portal.seenprotect.com
+
+Read the detailed [alert lifecycle](docs/architecture/alert-lifecycle.md).
+
+## ARIA L2 Orchestrator
+
+The L2 component operates as a controlled investigation loop:
+
+```mermaid
+flowchart LR
+    A["Identify Gaps"] --> B["Plan Questions"]
+    B --> C["Call Scoped Tools"]
+    C --> D["Evaluate Results"]
+    D --> E["Record Evidence"]
+    E --> A
 ```
 
-## Tech Stack
+The orchestrator uses scoped tools for SIEM search, endpoint context, identity activity, email telemetry, threat intelligence, and alert history. Missing data stays unknown. Missing data does not become benign evidence.
 
-| Layer | Technology |
-|-------|-----------|
-| Endpoint Monitoring | Wazuh 4.14.4 (native, not Docker) |
-| AI Analysis | Claude claude-sonnet-4-5 — Anthropic |
-| Case Management | TheHive 5.3 (Docker) |
-| Database | Supabase (PostgreSQL + RLS) |
-| Real-time Alerts | Telegram Bot API |
-| Email | Resend (aria@seenprotect.com) |
-| PDF Reports | Puppeteer (HTML → PDF) |
-| Client Portal | Next.js 14, Tailwind CSS, Vercel |
-| Payments + Provisioning | Stripe Webhooks → auto-onboarding |
-| M365 Monitoring | Microsoft Graph API (L1b poller) |
-| GCP Monitoring | Security Command Center + Audit Logs |
-| Infrastructure | Contabo VPS, Ubuntu 24, PM2, Nginx |
+Read the detailed [L2 Orchestrator design](docs/architecture/l2-orchestrator.md).
 
----
+## Evidence and CODEX
 
-## Detection Coverage
+The Evidence Package separates:
 
-**47 custom Wazuh rules mapped to MITRE ATT&CK:**
+- Facts
+- Contradictions
+- Unknowns
+- Citations
+- Collection status
+- Evidence provenance
+- Missing artifacts
 
-| Technique | Name | Category |
-|-----------|------|----------|
-| T1110.001 | Brute Force: Password Guessing | Credential Access |
-| T1486 | Data Encrypted for Impact | Ransomware |
-| T1078.004 | Valid Accounts: Cloud | Initial Access |
-| T1566.002 | Phishing: Spearphishing Link | Initial Access |
-| T1114.003 | Email Forwarding Rule | Collection |
-| T1548 | Abuse Elevation Control | Privilege Escalation |
-| T1136.003 | Create Account: Cloud | Persistence |
-| T1562.004 | Impair Defenses: Firewall | Defense Evasion |
-| T1496 | Resource Hijacking (Cryptomining) | Impact |
-| T1611 | Escape to Host (Container) | Privilege Escalation |
+CODEX proposes:
 
-**Compliance Frameworks:**
-- ✅ NIST CSF 2.0 — all 6 functions (Identify, Protect, Detect, Respond, Recover, Govern)
-- ✅ HIPAA Technical Safeguards — 164.312(a)(1), (b), (c)(1), (d), (e)(1)
-- ✅ FTC Safeguards Rule
+- Verdict
+- Confidence
+- Evidence sufficiency
 
----
+CODEX does not authorize an action. Verification and policy authorization occur after the proposal.
 
-## Key Features
+## Verification and Policy
 
-**🤖 Autonomous L2 Analysis**
-Every alert is analyzed by Claude AI — MITRE technique mapped, CISA KEV checked, compliance impact assessed, root cause identified, and recommended actions generated. No human required for L1/L2 triage.
+The Verifier checks citation validity, evidence validity, and tenant scope.
 
-**📱 Smart Telegram Alerts**
-14 attack category templates. Brute force alerts show source IP + attempt count. Ransomware alerts include ISOLATE warning. Each alert links directly to the TheHive case.
+The Policy Gate applies deterministic authorization rules. Approved automatic outcomes create durable actions for the Live Action Executor. Cases without sufficient support move to analyst review or escalation.
 
-**🎫 Auto Case Lifecycle**
-TheHive cases auto-created for critical/high/medium severity. Low/medium auto-closed with audit-ready closure notes. High/critical tracked with SLA timers.
+## Supported Source Categories
 
-**📊 Monthly PDF Reports**
-Auto-generated on the 1st of each month. Includes alert summary, MITRE techniques detected, HIPAA compliance posture, and security score. Uploaded to Supabase Storage, emailed to client, available for download in portal.
+- Wazuh security telemetry
+- Microsoft 365 activity
+- Google Workspace activity
+- Endpoint context
+- Identity activity
+- Email telemetry
+- Threat intelligence
+- Historical alert context
 
-**🏢 Client Portal**
-Self-service dashboard showing escalated incidents only (no noise). Threat summaries written in plain language. Analyst response panel for SOC team. Onboarding hub with step-by-step Wazuh install instructions.
+Connector availability depends on tenant configuration and authorized credentials.
 
-**💳 Stripe Auto-Provisioning**
-Client pays → Stripe webhook fires → ARIA auto-creates Supabase account, TheHive org, and sends welcome email with portal credentials. Zero manual work.
+## Security Controls
 
----
+- Tenant isolation
+- Role-based access
+- Encrypted credential storage
+- Secret redaction
+- Evidence provenance
+- Evidence integrity metadata
+- Audit logs
+- Scoped tool access
+- Tool budgets
+- Deterministic verification
+- Policy-gated automation
+- Durable action receipts
 
-## The Journey — v1 → v2
+See [security and publication boundaries](docs/architecture/security-boundaries.md).
 
-| | v1 (Original) | v2 (Current) |
-|---|---|---|
-| AI | ❌ None | ✅ Claude claude-sonnet-4-5 |
-| Automation | Shuffle SOAR | Custom Node.js pipeline |
-| Analysis | Rule-based only | MITRE + CISA KEV + NIST CSF |
-| Threat Hunt | ❌ None | ✅ IOC correlation + kill chain |
-| Client Facing | ❌ None | ✅ Full portal + onboarding hub |
-| Reports | ❌ None | ✅ Auto PDF monthly reports |
-| Payments | ❌ None | ✅ Stripe auto-provisioning |
-| Cloud Monitoring | ❌ None | ✅ M365 + GCP pollers |
-| VPS Cost | $9/month | $9/month (same hardware) |
+## User Interfaces
 
----
+ARIA exposes separate experiences:
 
-## Infrastructure
+- Client Portal: customer and authorized third-party visibility into incidents, evidence, status, and reports.
+- SOC Board: internal MSSP analyst operations, review, escalation, response, and case management.
 
-| Component | Details |
-|-----------|---------|
-| VPS | Contabo, Ubuntu 24, 11GB RAM, 96GB disk |
-| Wazuh | 4.14.4 native (not Docker), ports 1514/1515 |
-| ARIA Engine | Node.js, PM2, port 4000 |
-| TheHive | 5.3, Docker, port 9000 |
-| Reverse Proxy | Nginx + SSL (Let's Encrypt) |
-| Domains | seenprotect.com • portal.seenprotect.com • app.seenprotect.com |
+The Client Portal and SOC Board have separate authorization models and responsibilities.
 
-**ARIA Engine files:**
+## Documentation
 
-| File | Purpose |
-|------|---------|
-| index.js | Express server + routing |
-| l2-agent.js | Claude AI threat analysis |
-| threat-hunt.js | IOC correlation + kill chain |
-| case-manager.js | TheHive case lifecycle |
-| report-generator.js | Puppeteer PDF generation |
-| stripe-webhook.js | Auto client provisioning |
-| m365-poller.js | Microsoft Graph monitoring |
-| gcp-poller.js | GCP Security Command Center |
+- [Alert Lifecycle](docs/architecture/alert-lifecycle.md)
+- [ARIA L2 Orchestrator](docs/architecture/l2-orchestrator.md)
+- [Security and Publication Boundaries](docs/architecture/security-boundaries.md)
+- [Networking Overview](NETWORKING.md)
 
----
+## Project Status
 
-## Repos
+Architecture documentation does not prove deployment.
 
-| Repo | Description |
-|------|-------------|
-| [aria-provisioning](https://github.com/abdullaah019/aria-provisioning) | Core ARIA engine |
-| [aria-portal](https://github.com/abdullaah019/aria-portal) | Client portal (Next.js 14) |
-| [seenprotect-landing](https://github.com/abdullaah019/seenprotect-landing) | Landing page |
+Use these labels when describing a capability:
 
----
+| Status | Meaning |
+|---|---|
+| Implemented | Code exists in the relevant source repository. |
+| Partially implemented | Some components exist, but the full path is incomplete. |
+| Planned | Design exists without a complete implementation. |
+| Production verified | Release identity, runtime health, and expected behavior were verified after deployment. |
+
+## Related Repositories
+
+| Repository | Responsibility |
+|---|---|
+| [aria-provisioning](https://github.com/abdullaah019/aria-provisioning) | ARIA engine, connectors, investigations, evidence, policy, and live actions |
+| [aria-portal](https://github.com/abdullaah019/aria-portal) | Client Portal |
+| [soc.seenprotect](https://github.com/abdullaah019/soc.seenprotect) | SOC Board |
 
 ## Author
 
-**Abdullaah Yaseen** — SOC Analyst & Founder, SeenProtect
+Abdullaah Yaseen
 
-CompTIA Security+ • CySA+ • AZ-500 • SC-300
+SOC Analyst and Founder, SeenProtect
 
-[seenprotect.com](https://seenprotect.com) • [LinkedIn](https://linkedin.com/in/abdullaahyaseen)
-
----
-
-*Started as a $9/month homelab experiment. Built into a production SOC platform serving regulated SMBs.*
+[seenprotect.com](https://seenprotect.com) · [LinkedIn](https://linkedin.com/in/abdullaahyaseen)
