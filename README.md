@@ -148,13 +148,17 @@ Use these labels when describing a capability:
 | Planned | Design exists without a complete implementation. |
 | Production verified | Release identity, runtime health, and expected behavior were verified after deployment. |
 
-## Related Repositories
+## Implementation Components
 
-| Repository | Responsibility |
-|---|---|
-| [aria-provisioning](https://github.com/abdullaah019/aria-provisioning) | ARIA engine, connectors, investigations, evidence, policy, and live actions |
-| [aria-portal](https://github.com/abdullaah019/aria-portal) | Client Portal |
-| [soc.seenprotect](https://github.com/abdullaah019/soc.seenprotect) | SOC Board |
+The operational implementation repositories remain private.
+
+| Component | Responsibility | Visibility |
+|---|---|---|
+| ARIA Engine | Connectors, investigations, evidence, policy, and live actions | Private |
+| Client Portal | Customer incident visibility and authorized workflows | Private |
+| SOC Board | MSSP analyst review, escalation, and response | Private |
+
+Public examples must use fictional tenants, mock telemetry, placeholder credentials, and no production decision logic.
 
 ## Author
 
