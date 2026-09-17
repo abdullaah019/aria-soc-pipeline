@@ -2,6 +2,8 @@
 
 This document shows the public, sanitized ARIA alert path. It excludes credentials, customer data, private detection logic, production topology, and decision thresholds.
 
+![ARIA alert lifecycle](images/aria-alert-lifecycle.webp)
+
 ```mermaid
 flowchart LR
     A["Alert Fires<br/>Wazuh · Microsoft 365 · Google Workspace"]
