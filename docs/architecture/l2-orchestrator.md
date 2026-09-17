@@ -2,6 +2,8 @@
 
 The L2 component is an orchestrator. It does not bypass policy or execute unrestricted actions.
 
+![ARIA L2 Orchestrator](images/aria-l2-orchestrator.webp)
+
 ```mermaid
 flowchart LR
     subgraph INPUTS["Investigation Inputs"]

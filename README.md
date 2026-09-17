@@ -4,6 +4,8 @@ ARIA is the evidence-driven investigation and response pipeline behind SeenProte
 
 This public repository documents the system architecture without exposing credentials, customer telemetry, production topology, private detection logic, or decision thresholds.
 
+![ARIA alert lifecycle](docs/architecture/images/aria-alert-lifecycle.webp)
+
 ## Purpose
 
 ARIA turns security detections into evidence-backed investigation outcomes.
